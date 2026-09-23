@@ -61,6 +61,9 @@ textarea{min-height:64px;resize:vertical}
 .shift{display:inline-block;background:var(--accent-soft);color:var(--accent-text);font-weight:800;font-size:13px;padding:4px 10px;border-radius:8px}
 .task{font-size:19px;font-weight:700;margin:10px 0 12px;text-transform:uppercase}
 .row{display:flex;gap:8px}
+.shift.extra{background:var(--ok-soft);color:var(--ok)}
+.card-extra{border-style:dashed}
+.xcell{border-radius:8px;padding:6px;margin-bottom:6px}
 .status{border-radius:12px;padding:10px 12px;font-weight:600}
 .status.ok{background:var(--ok-soft);color:var(--ok)}
 .status.ko{background:var(--ko-soft);color:var(--ko)}
@@ -75,7 +78,7 @@ textarea{min-height:64px;resize:vertical}
 .stat b{display:block;font-size:24px}
 .stat span{font-size:12px;color:var(--muted)}
 .tablebox{overflow-x:auto;margin-bottom:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
-table{border-collapse:collapse;width:100%;min-width:520px;font-size:13px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13px}
 th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
 th{font-size:12px;color:var(--muted);font-weight:700;background:var(--bg)}
 td.c-ok{background:var(--ok-soft)}td.c-ko{background:var(--ko-soft)}td.c-no{color:var(--muted)}
@@ -95,7 +98,7 @@ h2{font-size:17px;margin:18px 2px 8px}
 <div class="toast hidden" id="toast"></div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc as fDoc, getDoc, setDoc, onSnapshot, collection as fCol, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc as fDoc, getDoc, setDoc, updateDoc, deleteField, onSnapshot, collection as fCol, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBvC80LRAvChEIUt1cHeVVgGokYg6l9DkM",
@@ -116,6 +119,7 @@ function makeDb(){
       get:async()=>W(await getDoc(r)),
       set:d=>setDoc(r,d),
       update:d=>setDoc(r,d,{merge:true}),
+      unset:f=>updateDoc(r,{[f]:deleteField()}),
       onSnapshot:(n,e)=>onSnapshot(r,s=>n(W(s)),e)
     };},
     collection(p){
@@ -159,7 +163,7 @@ const fmtShort=d=>pad(d.getDate())+"/"+pad(d.getMonth()+1);
 const opDate=()=>{const d=new Date();if(d.getHours()<5)d.setDate(d.getDate()-1);return d;};
 const st={
   me:null, tab:"pulizie", db:null, dbReady:false, dbDead:false, isAdmin:false, downloads:null,
-  plan:DEFAULT_PLAN, staff:{}, vOpen:null, readOnly:false, week:monday(opDate()), sel:0, firme:{}, koOpen:null, planDraft:null
+  plan:DEFAULT_PLAN, staff:{}, vOpen:null, addOpen:false, readOnly:false, week:monday(opDate()), sel:0, firme:{}, koOpen:null, planDraft:null
 };
 try{st.me=localStorage.getItem("lb_pulizie_nome")||null;}catch(e){}
 
@@ -167,6 +171,41 @@ const todayIso=()=>iso(opDate());
 (function initSel(){st.sel=(opDate().getDay()+6)%7;})();
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2200);}
+
+/* ---------- SLOT (turni fissi + pulizie extra) ---------- */
+function extrasOf(date){
+  const ex=(st.firme[date]&&st.firme[date].extra)||{};
+  return Object.keys(ex).map(id=>({k:id,label:"Extra",extra:true,task:ex[id].compito,creatoDa:ex[id].creatoDa,creato:ex[id].creato||0}))
+    .sort((a,b)=>a.creato-b.creato);
+}
+function slotsFor(dayIdx){
+  const dk=DAYS[dayIdx].k,date=iso(addDays(st.week,dayIdx));
+  return SHIFTS.map(s=>({k:s.k,label:s.label,task:st.plan[dk][s.k]})).concat(extrasOf(date));
+}
+async function aggiungiExtra(nome){
+  nome=String(nome||"").trim().replace(/\s+/g," ").slice(0,80);
+  if(!nome){toast("Scrivi il nome della pulizia");return;}
+  if(!st.db||st.dbDead||st.readOnly){toast("Archivio non disponibile");return;}
+  const date=todayIso();
+  const dayIdx=(opDate().getDay()+6)%7;
+  const id="x"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  const ex={[id]:{compito:nome,creatoDa:st.me,creato:Date.now()}};
+  try{
+    if(st.firme[date]) await st.db.doc("firme/"+date).update({extra:ex});
+    else await st.db.doc("firme/"+date).update({data:date,giorno:DAYS[dayIdx].k,slots:{},extra:ex});
+    st.addOpen=false;toast("Pulizia extra aggiunta");
+  }catch(e){console.error(e);toast("Errore, riprova");}
+  render();
+}
+async function rimuoviExtra(dayIdx,id){
+  const date=iso(addDays(st.week,dayIdx));
+  if(date!==todayIso())return;
+  const sl=extrasOf(date).find(x=>x.k===id);const rec=(st.firme[date]&&st.firme[date].slots||{})[id];
+  if(!sl||sl.creatoDa!==st.me||rec)return;
+  if(!confirm("Rimuovere questa pulizia extra?"))return;
+  try{await st.db.doc("firme/"+date).unset("extra."+id);toast("Rimossa");}catch(e){console.error(e);toast("Errore, riprova");}
+  render();
+}
 
 /* ---------- DB ---------- */
 let unsubWeek=null;
@@ -210,8 +249,9 @@ async function firma(dayIdx,shiftK,esito,motivo){
   if(!st.db||st.dbDead){toast("Archivio non disponibile");return;}
   const date=iso(addDays(st.week,dayIdx));
   if(date!==todayIso()){toast("Si può firmare solo il giorno stesso");return;}
-  const dk=DAYS[dayIdx].k,sh=SHIFTS.find(s=>s.k===shiftK);
-  const rec={nome:st.me,esito:esito,motivo:motivo||"",ora:Date.now(),compito:st.plan[dk][shiftK],turno:sh.label,verifica:null};
+  const dk=DAYS[dayIdx].k,sh=slotsFor(dayIdx).find(s=>s.k===shiftK);
+  if(!sh){toast("Pulizia non trovata");return;}
+  const rec={nome:st.me,esito:esito,motivo:motivo||"",ora:Date.now(),compito:sh.task,turno:sh.label,verifica:null};
   try{
     await upsert(st.db.doc("firme/"+date),{data:date,giorno:dk,slots:{[shiftK]:rec}});
     st.koOpen=null;toast(esito==="fatto"?"✓ Firmato: fatto":"Registrato: non fatto");
@@ -229,6 +269,29 @@ async function controfirma(dayIdx,shiftK,esito,nota){
     await st.db.doc("firme/"+date).update({slots:{[shiftK]:{verifica:{nome:st.me,esito:esito,nota:nota||"",ora:Date.now()}}}});
     st.vOpen=null;toast(esito==="ok"?"🛡 Controfirmato: conforme":"🛡 Registrato: non conforme");
   }catch(e){if(e&&e.code==="permission-denied"){st.readOnly=true;toast("Non hai il permesso di firmare");}else toast("Errore di salvataggio, riprova");console.error(e);}
+  render();
+}
+
+async function annulla(dayIdx,shiftK,cosa){
+  if(!st.db||st.dbDead)return;
+  const date=iso(addDays(st.week,dayIdx));
+  if(date!==todayIso()){toast("Si può annullare solo il giorno stesso");return;}
+  const rec=(st.firme[date]&&st.firme[date].slots||{})[shiftK];
+  if(!rec)return;
+  try{
+    if(cosa==="firma"){
+      if(rec.nome!==st.me||rec.verifica)return;
+      if(!confirm("Annullare la tua firma su questo turno?"))return;
+      await st.db.doc("firme/"+date).unset("slots."+shiftK);
+      toast("Firma annullata");
+    }else{
+      if(!rec.verifica||rec.verifica.nome!==st.me)return;
+      if(!confirm("Annullare la tua controfirma?"))return;
+      await st.db.doc("firme/"+date).unset("slots."+shiftK+".verifica");
+      toast("Controfirma annullata");
+    }
+    st.koOpen=null;st.vOpen=null;
+  }catch(e){console.error(e);toast("Errore, riprova");}
   render();
 }
 
@@ -255,7 +318,7 @@ function verificaHtml(dayIdx,sh,rec,isToday){
     const ok=v.esito==="ok";
     inner=`<div class="status ${ok?"ver":"ko"}">🛡 ${ok?"Pulizia verificata":"Non conforme"} · ${esc(v.nome)} alle ${hm(v.ora)}
       ${v.nota?`<small>Nota: ${esc(v.nota)}</small>`:""}</div>
-      ${isToday&&v.nome===st.me?`<div style="margin-top:8px"><button class="btn-ghost" data-act="vredo" data-d="${dayIdx}" data-s="${sh.k}">Modifica controfirma</button></div>`:""}`;
+      ${isToday&&v.nome===st.me&&!st.readOnly?`<div class="row" style="margin-top:8px"><button class="btn-ghost" style="flex:1" data-act="vredo" data-d="${dayIdx}" data-s="${sh.k}">✎ Modifica</button><button class="btn-ghost" style="flex:1;color:var(--ko)" data-act="undo-ver" data-d="${dayIdx}" data-s="${sh.k}">↺ Annulla controfirma</button></div>`:""}`;
   }else if(canAct){
     if(st.vOpen===key){
       inner=`<textarea id="vnota" placeholder="Cosa non va? (facoltativo)"></textarea>
@@ -265,7 +328,8 @@ function verificaHtml(dayIdx,sh,rec,isToday){
     }else{
       inner=`<div class="row">
         <button class="btn btn-ver" data-act="vok" data-d="${dayIdx}" data-s="${sh.k}">🛡 Verificato</button>
-        <button class="btn btn-ko" data-act="vko" data-d="${dayIdx}" data-s="${sh.k}">✗ Non conforme</button></div>`;
+        <button class="btn btn-ko" data-act="vko" data-d="${dayIdx}" data-s="${sh.k}">✗ Non conforme</button></div>
+        ${st.vOpen===key+"redo"?`<button class="btn-ghost" style="margin-top:8px;width:100%" data-act="vcancel">Chiudi senza modificare</button>`:""}`;
     }
   }else{
     inner=`<div class="status wait">${rec.nome===st.me&&isToday?"In attesa della controfirma del responsabile":(isToday?"Da controfirmare":"Senza controfirma")}</div>`;
@@ -276,13 +340,13 @@ function slotHtml(dayIdx,sh){
   const date=iso(addDays(st.week,dayIdx)),dk=DAYS[dayIdx].k;
   const rec=(st.firme[date]&&st.firme[date].slots||{})[sh.k];
   const isToday=date===todayIso();
-  const task=rec?rec.compito:st.plan[dk][sh.k];
+  const task=rec?rec.compito:sh.task;
   let body="";
   if(rec){
     const ok=rec.esito==="fatto";
     body=`<div class="status ${ok?"ok":"ko"}">${ok?"✓ Fatto":"✗ Non fatto"} · ${esc(rec.nome)} alle ${hm(rec.ora)}
       ${!ok&&rec.motivo?`<small>Motivo: ${esc(rec.motivo)}</small>`:""}</div>
-      ${isToday&&rec.nome===st.me&&!rec.verifica?`<div style="margin-top:8px"><button class="btn-ghost" data-act="redo" data-d="${dayIdx}" data-s="${sh.k}">Modifica la mia firma</button></div>`:""}`;
+      ${isToday&&rec.nome===st.me&&!st.readOnly?(!rec.verifica?`<div class="row" style="margin-top:8px"><button class="btn-ghost" style="flex:1" data-act="redo" data-d="${dayIdx}" data-s="${sh.k}">✎ Modifica</button><button class="btn-ghost" style="flex:1;color:var(--ko)" data-act="undo-sign" data-d="${dayIdx}" data-s="${sh.k}">↺ Annulla firma</button></div>`:`<div class="note" style="margin:8px 2px 0">Già controfirmata: per annullarla il responsabile deve prima annullare la controfirma.</div>`):""}`;
   }
   if(!rec||st.koOpen===dayIdx+sh.k+"redo"||st.koOpen===dayIdx+sh.k){
     if(isToday&&!st.dbDead&&st.dbReady&&!st.readOnly){
@@ -295,7 +359,8 @@ function slotHtml(dayIdx,sh){
       }else{
         body=`<div class="row">
           <button class="btn btn-ok" data-act="ok" data-d="${dayIdx}" data-s="${sh.k}">✓ Fatto</button>
-          <button class="btn btn-ko" data-act="ko" data-d="${dayIdx}" data-s="${sh.k}">✗ Non fatto</button></div>`;
+          <button class="btn btn-ko" data-act="ko" data-d="${dayIdx}" data-s="${sh.k}">✗ Non fatto</button></div>
+          ${st.koOpen===dayIdx+sh.k+"redo"?`<button class="btn-ghost" style="margin-top:8px;width:100%" data-act="cancel">Chiudi senza modificare</button>`:""}`;
       }
     }else if(!rec){
       const past=date<todayIso();
@@ -303,7 +368,9 @@ function slotHtml(dayIdx,sh){
     }
   }
   const vb=rec&&!(st.koOpen===dayIdx+sh.k+"redo"||st.koOpen===dayIdx+sh.k)?verificaHtml(dayIdx,sh,rec,isToday):"";
-  return `<div class="card"><span class="shift">Turno ${sh.label}</span><div class="task">${esc(task)}</div>${body}${vb}</div>`;
+  const head=sh.extra?`<span class="shift extra">➕ Pulizia extra · aggiunta da ${esc(sh.creatoDa)}</span>`:`<span class="shift">Turno ${sh.label}</span>`;
+  const rm=sh.extra&&!rec&&isToday&&sh.creatoDa===st.me&&!st.readOnly?`<button class="btn-ghost" style="margin-top:8px;width:100%;color:var(--ko)" data-act="rm-extra" data-d="${dayIdx}" data-s="${sh.k}">🗑 Rimuovi pulizia extra</button>`:"";
+  return `<div class="card${sh.extra?" card-extra":""}">${head}<div class="task">${esc(task)}</div>${body}${vb}${rm}</div>`;
 }
 function viewPulizie(){
   const t=todayIso();
@@ -311,14 +378,22 @@ function viewPulizie(){
   const selDate=iso(addDays(st.week,st.sel));
   let note="";
   if(selDate!==t)note=`<div class="note">Stai guardando ${DAYS[st.sel].n}: si può firmare e controfirmare solo il giorno stesso.</div>`;
-  return `<div class="days">${days}</div>${note}${SHIFTS.map(s=>slotHtml(st.sel,s)).join("")}`;
+  let add="";
+  if(selDate===t&&st.dbReady&&!st.dbDead&&!st.readOnly){
+    add=st.addOpen?`<div class="card card-extra"><span class="shift extra">➕ Nuova pulizia extra</span>
+        <input id="extraIn" placeholder="Nome della pulizia (es. cappa aspirazione)" maxlength="80" style="margin-top:10px">
+        <div class="row" style="margin-top:8px"><button class="btn btn-ghost" style="flex:1" data-act="add-cancel">Annulla</button>
+        <button class="btn btn-main" style="flex:1" data-act="add-save">Aggiungi</button></div></div>`
+      :`<button class="btn btn-ghost" style="width:100%;padding:14px;border-style:dashed" data-act="add-open">➕ Aggiungi pulizia extra</button>`;
+  }
+  return `<div class="days">${days}</div>${note}${slotsFor(st.sel).map(s=>slotHtml(st.sel,s)).join("")}${add}`;
 }
 function weekData(){
   const rows=[];let ok=0,ko=0,miss=0,ver=0,nc=0,daVer=0;const per={};const kos=[];const ncs=[];
   const P=n=>per[n]=per[n]||{ok:0,ko:0,cf:0};
   DAYS.forEach((d,i)=>{
     const date=iso(addDays(st.week,i));const slots=(st.firme[date]&&st.firme[date].slots)||{};
-    const cells=SHIFTS.map(s=>{
+    const proc=s=>{
       const r=slots[s.k];
       if(r){
         P(r.nome);
@@ -326,20 +401,26 @@ function weekData(){
         if(r.verifica){P(r.verifica.nome).cf++;if(r.verifica.esito==="ok")ver++;else{nc++;ncs.push({d:d.n,s,r});}}
         else daVer++;
       }else if(date<=todayIso()){miss++;}
-      return {s,r,task:r?r.compito:st.plan[d.k][s.k],date};
-    });
-    rows.push({d,date,cells});
+      return {s,r,task:r?r.compito:s.task,date};
+    };
+    const all=slotsFor(i);
+    const cells=all.filter(s=>!s.extra).map(proc);
+    const extras=all.filter(s=>s.extra).map(proc);
+    rows.push({d,date,cells,extras});
   });
   return {rows,ok,ko,miss,ver,nc,daVer,per,kos,ncs};
 }
 function viewControllo(){
   const w=weekData();const t=todayIso();
   const vline=r=>r.verifica?`<span class="vv ${r.verifica.esito==="ok"?"":"vk"}">🛡 ${r.verifica.esito==="ok"?"":"✗ "}${esc(r.verifica.nome)}</span>`:`<span class="vv vn">🛡 —</span>`;
-  const table=`<div class="tablebox"><table><thead><tr><th>Giorno</th>${SHIFTS.map(s=>`<th>${s.label}</th>`).join("")}</tr></thead><tbody>
+  const table=`<div class="tablebox"><table><thead><tr><th>Giorno</th>${SHIFTS.map(s=>`<th>${s.label}</th>`).join("")}<th>Extra</th></tr></thead><tbody>
     ${w.rows.map(r=>`<tr><th>${r.d.s}<br>${fmtShort(new Date(r.date+"T12:00:00"))}</th>${r.cells.map(c=>{
       if(c.r){const ok=c.r.esito==="fatto";const bad=!ok||(c.r.verifica&&c.r.verifica.esito!=="ok");return `<td class="${bad?"c-ko":"c-ok"}"><span class="t">${esc(c.task)}</span><span class="who">${ok?"✓":"✗"} ${esc(c.r.nome)}</span> ${hm(c.r.ora)}${vline(c.r)}</td>`;}
       return `<td class="c-no"><span class="t">${esc(c.task)}</span>${c.date<=t?"— non firmato":"da fare"}</td>`;
-    }).join("")}</tr>`).join("")}
+    }).join("")}<td>${r.extras.length?r.extras.map(c=>{
+      if(c.r){const ok=c.r.esito==="fatto";const bad=!ok||(c.r.verifica&&c.r.verifica.esito!=="ok");return `<div class="xcell ${bad?"c-ko":"c-ok"}"><span class="t">${esc(c.task)}</span><span class="who">${ok?"✓":"✗"} ${esc(c.r.nome)}</span> ${hm(c.r.ora)}${vline(c.r)}</div>`;}
+      return `<div class="xcell c-no"><span class="t">${esc(c.task)}</span>— non firmato</div>`;
+    }).join(""):`<span style="color:var(--muted)">—</span>`}</td></tr>`).join("")}
   </tbody></table></div>`;
   const people=Object.keys(w.per).sort((a,b)=>a.localeCompare(b));
   return `<div class="weeknav"><button class="btn-ghost" data-act="wprev">◀</button>
@@ -369,7 +450,7 @@ function viewPlanEdit(){
 }
 function render(){
   const app=document.getElementById("app");
-  const motivo=document.getElementById("motivo");const keep=motivo?motivo.value:null;const vn=document.getElementById("vnota");const keepV=vn?vn.value:null;
+  const motivo=document.getElementById("motivo");const keep=motivo?motivo.value:null;const vn=document.getElementById("vnota");const keepV=vn?vn.value:null;const xi=document.getElementById("extraIn");const keepX=xi?xi.value:null;
   if(!st.me){app.innerHTML=viewLogin();return;}
   const banner=st.readOnly?`<div class="banner">Il database ha rifiutato il salvataggio: controlla le regole di Firestore.</div>`:st.dbDead?`<div class="banner">Archivio non raggiungibile: le firme non vengono salvate. Riapri l'app.</div>`:(!st.dbReady?`<div class="note">Collegamento all'archivio…</div>`:"");
   app.innerHTML=`<header><div class="brand"><span>Le Barrique</span><b>Pulizie Cucina</b></div>
@@ -377,7 +458,7 @@ function render(){
     ${banner}
     ${`<div class="tabs"><button class="${st.tab==="pulizie"?"on":""}" data-act="tab" data-t="pulizie">Pulizie</button><button class="${st.tab==="controllo"?"on":""}" data-act="tab" data-t="controllo">Controllo</button></div>`}
     ${st.tab==="controllo"?viewControllo():viewPulizie()}`;
-  const m2=document.getElementById("motivo");if(m2&&keep!==null)m2.value=keep;const v2=document.getElementById("vnota");if(v2&&keepV!==null)v2.value=keepV;
+  const m2=document.getElementById("motivo");if(m2&&keep!==null)m2.value=keep;const v2=document.getElementById("vnota");if(v2&&keepV!==null)v2.value=keepV;const x2=document.getElementById("extraIn");if(x2&&keepX!==null)x2.value=keepX;
 }
 
 /* ---------- CSV ---------- */
@@ -389,7 +470,8 @@ async function exportCsv(){
     const snap=await st.db.collection("firme").where("data",">=",from).where("data","<=",to).get();
     const lines=[["Data","Giorno","Turno","Compito","Nome","Esito","Ora","Motivo","Responsabile","Controfirma","Ora controfirma","Nota responsabile"]];
     snap.docs.map(d=>d.data()).sort((a,b)=>a.data.localeCompare(b.data)).forEach(v=>{
-      SHIFTS.forEach(s=>{const r=(v.slots||{})[s.k];if(r){const x=r.verifica;lines.push([v.data,v.giorno,r.turno,r.compito,r.nome,r.esito==="fatto"?"Fatto":"Non fatto",hm(r.ora),r.motivo||"",x?x.nome:"",x?(x.esito==="ok"?"Verificato":"Non conforme"):"Mancante",x?hm(x.ora):"",x?x.nota||"":""]);}});
+      Object.keys(v.slots||{}).sort().forEach(k=>{const r=v.slots[k];if(r){const x=r.verifica;lines.push([v.data,v.giorno,r.turno,r.compito,r.nome,r.esito==="fatto"?"Fatto":"Non fatto",hm(r.ora),r.motivo||"",x?x.nome:"",x?(x.esito==="ok"?"Verificato":"Non conforme"):"Mancante",x?hm(x.ora):"",x?x.nota||"":""]);}});
+      /* le pulizie extra hanno turno "Extra" */
     });
     const csv="\ufeff"+lines.map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(";")).join("\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="pulizie-cucina-"+y+"-"+pad(m+1)+".csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
@@ -402,7 +484,7 @@ function doLogin(n){
   st.me=n;try{localStorage.setItem("lb_pulizie_nome",n);}catch(e){}
   registerName(n);render();
 }
-document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="nameIn")doLogin(e.target.value);});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="nameIn")doLogin(e.target.value);if(e.key==="Enter"&&e.target.id==="extraIn")aggiungiExtra(e.target.value);});
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]");if(!b)return;
   const a=b.dataset.act,d=+b.dataset.d,s=b.dataset.s;
@@ -410,7 +492,7 @@ document.addEventListener("click",e=>{
   else if(a==="pick")doLogin(b.dataset.n);
   else if(a==="logout"){st.me=null;try{localStorage.removeItem("lb_pulizie_nome");}catch(e){}st.tab="pulizie";render();}
   else if(a==="tab"){st.tab=b.dataset.t;render();}
-  else if(a==="day"){st.sel=+b.dataset.i;st.koOpen=null;st.vOpen=null;render();}
+  else if(a==="day"){st.sel=+b.dataset.i;st.koOpen=null;st.vOpen=null;st.addOpen=false;render();}
   else if(a==="ok")firma(d,s,"fatto","");
   else if(a==="ko"){st.koOpen=d+s;render();const m=document.getElementById("motivo");if(m)m.focus();}
   else if(a==="ko-save"){const m=document.getElementById("motivo");firma(d,s,"non_fatto",m?m.value.trim().slice(0,200):"");}
@@ -421,6 +503,12 @@ document.addEventListener("click",e=>{
   else if(a==="vko-save"){const m=document.getElementById("vnota");controfirma(d,s,"ko",m?m.value.trim().slice(0,200):"");}
   else if(a==="vcancel"){st.vOpen=null;render();}
   else if(a==="vredo"){st.vOpen=d+s+"redo";render();}
+  else if(a==="undo-sign")annulla(d,s,"firma");
+  else if(a==="add-open"){st.addOpen=true;render();const i=document.getElementById("extraIn");if(i)i.focus();}
+  else if(a==="add-cancel"){st.addOpen=false;render();}
+  else if(a==="add-save"){const i=document.getElementById("extraIn");aggiungiExtra(i?i.value:"");}
+  else if(a==="rm-extra")rimuoviExtra(d,s);
+  else if(a==="undo-ver")annulla(d,s,"verifica");
   else if(a==="wprev"||a==="wnext"){st.week=addDays(st.week,a==="wprev"?-7:7);subscribeWeek();render();}
   else if(a==="csv")exportCsv();
   else if(a==="plan-edit"){st.planDraft=JSON.parse(JSON.stringify(st.plan));render();}
