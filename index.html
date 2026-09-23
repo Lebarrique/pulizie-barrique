@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pulizie Cucina · Le Barrique</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pulizie">
+<meta name="theme-color" content="#ea580c">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧹</text></svg>">
+<style>
+:root{
+  --bg:#fafaf9;--card:#ffffff;--text:#1c1917;--muted:#78716c;--line:#e7e5e4;
+  --accent:#ea580c;--accent-soft:#ffedd5;--accent-text:#9a3412;
+  --ok:#16a34a;--ok-soft:#dcfce7;--ko:#dc2626;--ko-soft:#fee2e2;--wait:#f5f5f4;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1c1917;--card:#292524;--text:#fafaf9;--muted:#a8a29e;--line:#44403c;
+  --accent:#f97316;--accent-soft:#431407;--accent-text:#fdba74;
+  --ok:#4ade80;--ok-soft:#14532d;--ko:#f87171;--ko-soft:#450a0a;--wait:#1f1c1a;}}
+:root[data-theme="dark"]{--bg:#1c1917;--card:#292524;--text:#fafaf9;--muted:#a8a29e;--line:#44403c;
+  --accent:#f97316;--accent-soft:#431407;--accent-text:#fdba74;
+  --ok:#4ade80;--ok-soft:#14532d;--ko:#f87171;--ko-soft:#450a0a;--wait:#1f1c1a;}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:640px;margin:0 auto;padding:12px 14px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0 12px}
+.brand b{display:block;font-size:20px;letter-spacing:.3px}
+.brand span{font-size:13px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent-text);padding:6px 12px;border-radius:999px;font-weight:700;font-size:14px;border:0}
+button{font:inherit;cursor:pointer}
+.btn{border:0;border-radius:14px;padding:14px 16px;font-weight:700;font-size:16px}
+.btn-main{background:var(--accent);color:#fff;width:100%}
+.btn-ok{background:var(--ok);color:#fff;flex:1}
+.btn-ver{background:var(--accent);color:#fff;flex:1}
+.status.ver{background:var(--accent-soft);color:var(--accent-text)}
+.vbox{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.vlabel{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+td .vv{display:block;margin-top:3px;font-weight:700;color:var(--accent-text)}td .vv.vk{color:var(--ko)}td .vv.vn{color:var(--muted);font-weight:500}
+.btn-ko{background:var(--card);color:var(--ko);border:2px solid var(--ko);flex:1}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line);padding:8px 12px;font-size:14px;border-radius:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+input,textarea{font:inherit;width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+textarea{min-height:64px;resize:vertical}
+.login{text-align:center;padding-top:8vh}
+.login h1{margin:8px 0 2px;font-size:30px}
+.login p{color:var(--muted);margin:0 0 22px}
+.names{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0}
+.names button{background:var(--card);border:1px solid var(--line);color:var(--text);padding:10px 14px;border-radius:999px;font-weight:600}
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:0;background:transparent;color:var(--muted);padding:10px;border-radius:10px;font-weight:700}
+.tabs button.on{background:var(--accent);color:#fff}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px}
+.days button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:8px 0;font-weight:700;font-size:13px;position:relative}
+.days button small{display:block;font-weight:500;color:var(--muted);font-size:11px}
+.days button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.days button.on small{color:#ffedd5}
+.days button.today::after{content:"";position:absolute;top:5px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.shift{display:inline-block;background:var(--accent-soft);color:var(--accent-text);font-weight:800;font-size:13px;padding:4px 10px;border-radius:8px}
+.task{font-size:19px;font-weight:700;margin:10px 0 12px;text-transform:uppercase}
+.row{display:flex;gap:8px}
+.status{border-radius:12px;padding:10px 12px;font-weight:600}
+.status.ok{background:var(--ok-soft);color:var(--ok)}
+.status.ko{background:var(--ko-soft);color:var(--ko)}
+.status.wait{background:var(--wait);color:var(--muted);font-weight:500}
+.status small{display:block;font-weight:500;opacity:.9;margin-top:2px}
+.note{font-size:14px;color:var(--muted);margin:4px 2px 12px}
+.banner{background:var(--ko-soft);color:var(--ko);padding:10px 12px;border-radius:12px;font-size:14px;margin-bottom:12px}
+.weeknav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.weeknav b{font-size:15px;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+.stat b{display:block;font-size:24px}
+.stat span{font-size:12px;color:var(--muted)}
+.tablebox{overflow-x:auto;margin-bottom:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:13px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:700;background:var(--bg)}
+td.c-ok{background:var(--ok-soft)}td.c-ko{background:var(--ko-soft)}td.c-no{color:var(--muted)}
+td .t{font-weight:600;display:block;margin-bottom:2px}
+td .who{font-weight:700}
+h2{font-size:17px;margin:18px 2px 8px}
+.list div{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.list div:last-child{border:0}
+.plan label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:8px 0 4px}
+.plan h3{margin:4px 0 2px;font-size:15px;color:var(--accent-text)}
+.hidden{display:none!important}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:9}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="toast hidden" id="toast"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc as fDoc, getDoc, setDoc, onSnapshot, collection as fCol, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBvC80LRAvChEIUt1cHeVVgGokYg6l9DkM",
+  authDomain: "planning-with-ai-e326c.firebaseapp.com",
+  projectId: "planning-with-ai-e326c",
+  storageBucket: "planning-with-ai-e326c.firebasestorage.app",
+  messagingSenderId: "447752839521",
+  appId: "1:447752839521:web:93c56ac0b33ccc7d4b2520"
+};
+
+/* Adapter: stessa interfaccia usata dall'app, dati su Firestore */
+function makeDb(){
+  const fdb=getFirestore(initializeApp(firebaseConfig));
+  const P=p=>p.replace(/^firme/,"pulizie_firme").replace(/^config/,"pulizie_config");
+  const W=s=>({id:s.id,exists:s.exists(),data:()=>s.data()});
+  return {
+    doc(p){const r=fDoc(fdb,P(p));return{
+      get:async()=>W(await getDoc(r)),
+      set:d=>setDoc(r,d),
+      update:d=>setDoc(r,d,{merge:true}),
+      onSnapshot:(n,e)=>onSnapshot(r,s=>n(W(s)),e)
+    };},
+    collection(p){
+      const build=cs=>({
+        where:(f,op,v)=>build([...cs,where(f,op,v)]),
+        get:async()=>{const s=await getDocs(query(fCol(fdb,P(p)),...cs));return{docs:s.docs.map(W)};},
+        onSnapshot:(n,e)=>onSnapshot(query(fCol(fdb,P(p)),...cs),s=>n({docs:s.docs.map(W)}),e)
+      });
+      return build([]);
+    }
+  };
+}
+
+(function(){
+const SHIFTS=[
+  {k:"M",label:"9:30 – 15:00"},
+  {k:"I",label:"12:00 – 18:00"},
+  {k:"S",label:"17:00 – 23:00"},
+  {k:"C",label:"19:00 – chiusura"}
+];
+const DAYS=[{k:"lun",n:"Lunedì",s:"Lun"},{k:"mar",n:"Martedì",s:"Mar"},{k:"mer",n:"Mercoledì",s:"Mer"},{k:"gio",n:"Giovedì",s:"Gio"},{k:"ven",n:"Venerdì",s:"Ven"},{k:"sab",n:"Sabato",s:"Sab"},{k:"dom",n:"Domenica",s:"Dom"}];
+const DEFAULT_PLAN={
+  lun:{M:"Sopra lavastoviglie",I:"Sotto lavastoviglie",S:"Frigo cassetti (prima metà)",C:"Frigo cassetti (seconda metà)"},
+  mar:{M:"Reparto spezie sopra cucina (lato sinistro)",I:"Reparto spezie sopra cucina (lato destro)",S:"Muro lavaggio (metà sinistra)",C:"Muro lavaggio (metà destra)"},
+  mer:{M:"Mobiletto contenitori (ripiani alti)",I:"Mobiletto contenitori (ripiani bassi)",S:"Sotto lavello (lato sinistro)",C:"Sotto lavello (lato destro)"},
+  gio:{M:"Sopra lavastoviglie",I:"Sotto lavastoviglie",S:"Frigo colonna (ripiani alti)",C:"Frigo colonna (ripiani bassi)"},
+  ven:{M:"Reparto spezie sopra cucina (lato sinistro)",I:"Reparto spezie sopra cucina (lato destro)",S:"Sottobanco cucina (lato sinistro)",C:"Sottobanco cucina (lato destro)"},
+  sab:{M:"Mobiletto contenitori (ripiani alti)",I:"Mobiletto contenitori (ripiani bassi)",S:"Muro lavaggio (metà sinistra)",C:"Muro lavaggio (metà destra)"},
+  dom:{M:"Sotto lavello (lato sinistro)",I:"Sotto lavello (lato destro)",S:"Mobiletto taglieri",C:"Mobiletto piatti"}
+};
+
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const monday=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x;};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+const hm=ts=>{const d=new Date(ts);return pad(d.getHours())+":"+pad(d.getMinutes());};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cleanName=s=>String(s||"").trim().replace(/\s+/g," ").split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ").slice(0,30);
+const fmtShort=d=>pad(d.getDate())+"/"+pad(d.getMonth()+1);
+
+const opDate=()=>{const d=new Date();if(d.getHours()<5)d.setDate(d.getDate()-1);return d;};
+const st={
+  me:null, tab:"pulizie", db:null, dbReady:false, dbDead:false, isAdmin:false, downloads:null,
+  plan:DEFAULT_PLAN, staff:{}, vOpen:null, readOnly:false, week:monday(opDate()), sel:0, firme:{}, koOpen:null, planDraft:null
+};
+try{st.me=localStorage.getItem("lb_pulizie_nome")||null;}catch(e){}
+
+const todayIso=()=>iso(opDate());
+(function initSel(){st.sel=(opDate().getDay()+6)%7;})();
+
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2200);}
+
+/* ---------- DB ---------- */
+let unsubWeek=null;
+function subscribeWeek(){
+  if(!st.db)return;
+  if(unsubWeek)unsubWeek();
+  const from=iso(st.week),to=iso(addDays(st.week,6));
+  st.firme={};
+  try{
+    unsubWeek=st.db.collection("firme").where("data",">=",from).where("data","<=",to).onSnapshot(snap=>{
+      const m={};snap.docs.forEach(d=>{const v=d.data();if(v&&v.data)m[v.data]=v;});
+      st.firme=m;render();
+    },err=>{console.error(err);st.dbDead=true;render();});
+  }catch(e){console.error(e);}
+}
+async function initDb(){
+  try{ st.db=makeDb(); }catch(e){ console.error(e); st.dbDead=true; render(); return; }
+  st.dbReady=true; st.downloads=true;
+  const onErr=e=>{console.error(e);if(e&&e.code==="permission-denied"){st.readOnly=true;}else{st.dbDead=true;}render();};
+  st.db.doc("config/piano").onSnapshot(s=>{
+    const v=s.exists?s.data():null;
+    if(v&&v.giorni){const p={};DAYS.forEach(d=>{p[d.k]=Object.assign({},DEFAULT_PLAN[d.k],v.giorni[d.k]||{});});st.plan=p;}
+    render();
+  },onErr);
+  st.db.doc("config/staff").onSnapshot(s=>{st.staff=(s.exists&&s.data().nomi)||{};render();},onErr);
+  subscribeWeek();
+  render();
+}
+async function upsert(ref,patch){
+  try{await ref.update(patch);}
+  catch(e){
+    if(e&&e.code==="invalid_argument"){const s=await ref.get();if(s.exists)await ref.update(patch);else await ref.set(patch);}
+    else throw e;
+  }
+}
+async function registerName(n){
+  if(!st.db)return;
+  try{await upsert(st.db.doc("config/staff"),{nomi:{[n]:true}});}catch(e){}
+}
+async function firma(dayIdx,shiftK,esito,motivo){
+  if(!st.db||st.dbDead){toast("Archivio non disponibile");return;}
+  const date=iso(addDays(st.week,dayIdx));
+  if(date!==todayIso()){toast("Si può firmare solo il giorno stesso");return;}
+  const dk=DAYS[dayIdx].k,sh=SHIFTS.find(s=>s.k===shiftK);
+  const rec={nome:st.me,esito:esito,motivo:motivo||"",ora:Date.now(),compito:st.plan[dk][shiftK],turno:sh.label,verifica:null};
+  try{
+    await upsert(st.db.doc("firme/"+date),{data:date,giorno:dk,slots:{[shiftK]:rec}});
+    st.koOpen=null;toast(esito==="fatto"?"✓ Firmato: fatto":"Registrato: non fatto");
+  }catch(e){if(e&&e.code==="permission-denied"){st.readOnly=true;toast("Non hai il permesso di firmare");}else toast("Errore di salvataggio, riprova");console.error(e);}
+  render();
+}
+async function controfirma(dayIdx,shiftK,esito,nota){
+  if(!st.db||st.dbDead){toast("Archivio non disponibile");return;}
+  const date=iso(addDays(st.week,dayIdx));
+  if(date!==todayIso()){toast("Si può controfirmare solo il giorno stesso");return;}
+  const rec=(st.firme[date]&&st.firme[date].slots||{})[shiftK];
+  if(!rec){toast("Manca ancora la firma di chi ha pulito");return;}
+  if(rec.nome===st.me){toast("Non puoi controfirmare la tua stessa pulizia");return;}
+  try{
+    await st.db.doc("firme/"+date).update({slots:{[shiftK]:{verifica:{nome:st.me,esito:esito,nota:nota||"",ora:Date.now()}}}});
+    st.vOpen=null;toast(esito==="ok"?"🛡 Controfirmato: conforme":"🛡 Registrato: non conforme");
+  }catch(e){if(e&&e.code==="permission-denied"){st.readOnly=true;toast("Non hai il permesso di firmare");}else toast("Errore di salvataggio, riprova");console.error(e);}
+  render();
+}
+
+/* ---------- VIEWS ---------- */
+function viewLogin(){
+  const known=Object.keys(st.staff||{}).sort((a,b)=>a.localeCompare(b));
+  return `<div class="login">
+    <div style="font-size:44px">🧹</div>
+    <h1>Pulizie Cucina</h1>
+    <p>Le Barrique · scrivi il tuo nome per entrare</p>
+    <div class="card" style="text-align:left">
+      <input id="nameIn" placeholder="Il tuo nome" autocomplete="off" autocapitalize="words" maxlength="30">
+      <div style="height:10px"></div>
+      <button class="btn btn-main" data-act="login">Entra</button>
+    </div>
+    ${known.length?`<p style="margin:14px 0 0">oppure tocca il tuo nome</p><div class="names">${known.map(n=>`<button data-act="pick" data-n="${esc(n)}">${esc(n)}</button>`).join("")}</div>`:""}
+  </div>`;
+}
+function verificaHtml(dayIdx,sh,rec,isToday){
+  const key=dayIdx+sh.k,v=rec.verifica;
+  const canAct=isToday&&!st.dbDead&&st.dbReady&&!st.readOnly&&rec.nome!==st.me;
+  let inner="";
+  if(v&&st.vOpen!==key+"redo"&&st.vOpen!==key){
+    const ok=v.esito==="ok";
+    inner=`<div class="status ${ok?"ver":"ko"}">🛡 ${ok?"Pulizia verificata":"Non conforme"} · ${esc(v.nome)} alle ${hm(v.ora)}
+      ${v.nota?`<small>Nota: ${esc(v.nota)}</small>`:""}</div>
+      ${isToday&&v.nome===st.me?`<div style="margin-top:8px"><button class="btn-ghost" data-act="vredo" data-d="${dayIdx}" data-s="${sh.k}">Modifica controfirma</button></div>`:""}`;
+  }else if(canAct){
+    if(st.vOpen===key){
+      inner=`<textarea id="vnota" placeholder="Cosa non va? (facoltativo)"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-ghost" style="flex:1" data-act="vcancel">Annulla</button>
+          <button class="btn btn-ko" data-act="vko-save" data-d="${dayIdx}" data-s="${sh.k}">Conferma non conforme</button></div>`;
+    }else{
+      inner=`<div class="row">
+        <button class="btn btn-ver" data-act="vok" data-d="${dayIdx}" data-s="${sh.k}">🛡 Verificato</button>
+        <button class="btn btn-ko" data-act="vko" data-d="${dayIdx}" data-s="${sh.k}">✗ Non conforme</button></div>`;
+    }
+  }else{
+    inner=`<div class="status wait">${rec.nome===st.me&&isToday?"In attesa della controfirma del responsabile":(isToday?"Da controfirmare":"Senza controfirma")}</div>`;
+  }
+  return `<div class="vbox"><div class="vlabel">Controfirma responsabile di turno</div>${inner}</div>`;
+}
+function slotHtml(dayIdx,sh){
+  const date=iso(addDays(st.week,dayIdx)),dk=DAYS[dayIdx].k;
+  const rec=(st.firme[date]&&st.firme[date].slots||{})[sh.k];
+  const isToday=date===todayIso();
+  const task=rec?rec.compito:st.plan[dk][sh.k];
+  let body="";
+  if(rec){
+    const ok=rec.esito==="fatto";
+    body=`<div class="status ${ok?"ok":"ko"}">${ok?"✓ Fatto":"✗ Non fatto"} · ${esc(rec.nome)} alle ${hm(rec.ora)}
+      ${!ok&&rec.motivo?`<small>Motivo: ${esc(rec.motivo)}</small>`:""}</div>
+      ${isToday&&rec.nome===st.me&&!rec.verifica?`<div style="margin-top:8px"><button class="btn-ghost" data-act="redo" data-d="${dayIdx}" data-s="${sh.k}">Modifica la mia firma</button></div>`:""}`;
+  }
+  if(!rec||st.koOpen===dayIdx+sh.k+"redo"||st.koOpen===dayIdx+sh.k){
+    if(isToday&&!st.dbDead&&st.dbReady&&!st.readOnly){
+      if(st.koOpen===dayIdx+sh.k){
+        body=`<textarea id="motivo" placeholder="Perché non è stato fatto? (facoltativo)"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn btn-ghost" style="flex:1" data-act="cancel">Annulla</button>
+            <button class="btn btn-ko" data-act="ko-save" data-d="${dayIdx}" data-s="${sh.k}">Conferma non fatto</button>
+          </div>`;
+      }else{
+        body=`<div class="row">
+          <button class="btn btn-ok" data-act="ok" data-d="${dayIdx}" data-s="${sh.k}">✓ Fatto</button>
+          <button class="btn btn-ko" data-act="ko" data-d="${dayIdx}" data-s="${sh.k}">✗ Non fatto</button></div>`;
+      }
+    }else if(!rec){
+      const past=date<todayIso();
+      body=`<div class="status wait">${past?"Non firmato":"Da fare"}</div>`;
+    }
+  }
+  const vb=rec&&!(st.koOpen===dayIdx+sh.k+"redo"||st.koOpen===dayIdx+sh.k)?verificaHtml(dayIdx,sh,rec,isToday):"";
+  return `<div class="card"><span class="shift">Turno ${sh.label}</span><div class="task">${esc(task)}</div>${body}${vb}</div>`;
+}
+function viewPulizie(){
+  const t=todayIso();
+  const days=DAYS.map((d,i)=>{const dt=addDays(st.week,i);return `<button class="${i===st.sel?"on":""} ${iso(dt)===t?"today":""}" data-act="day" data-i="${i}">${d.s}<small>${fmtShort(dt)}</small></button>`;}).join("");
+  const selDate=iso(addDays(st.week,st.sel));
+  let note="";
+  if(selDate!==t)note=`<div class="note">Stai guardando ${DAYS[st.sel].n}: si può firmare e controfirmare solo il giorno stesso.</div>`;
+  return `<div class="days">${days}</div>${note}${SHIFTS.map(s=>slotHtml(st.sel,s)).join("")}`;
+}
+function weekData(){
+  const rows=[];let ok=0,ko=0,miss=0,ver=0,nc=0,daVer=0;const per={};const kos=[];const ncs=[];
+  const P=n=>per[n]=per[n]||{ok:0,ko:0,cf:0};
+  DAYS.forEach((d,i)=>{
+    const date=iso(addDays(st.week,i));const slots=(st.firme[date]&&st.firme[date].slots)||{};
+    const cells=SHIFTS.map(s=>{
+      const r=slots[s.k];
+      if(r){
+        P(r.nome);
+        if(r.esito==="fatto"){ok++;per[r.nome].ok++;}else{ko++;per[r.nome].ko++;kos.push({d:d.n,date,s,r});}
+        if(r.verifica){P(r.verifica.nome).cf++;if(r.verifica.esito==="ok")ver++;else{nc++;ncs.push({d:d.n,s,r});}}
+        else daVer++;
+      }else if(date<=todayIso()){miss++;}
+      return {s,r,task:r?r.compito:st.plan[d.k][s.k],date};
+    });
+    rows.push({d,date,cells});
+  });
+  return {rows,ok,ko,miss,ver,nc,daVer,per,kos,ncs};
+}
+function viewControllo(){
+  const w=weekData();const t=todayIso();
+  const vline=r=>r.verifica?`<span class="vv ${r.verifica.esito==="ok"?"":"vk"}">🛡 ${r.verifica.esito==="ok"?"":"✗ "}${esc(r.verifica.nome)}</span>`:`<span class="vv vn">🛡 —</span>`;
+  const table=`<div class="tablebox"><table><thead><tr><th>Giorno</th>${SHIFTS.map(s=>`<th>${s.label}</th>`).join("")}</tr></thead><tbody>
+    ${w.rows.map(r=>`<tr><th>${r.d.s}<br>${fmtShort(new Date(r.date+"T12:00:00"))}</th>${r.cells.map(c=>{
+      if(c.r){const ok=c.r.esito==="fatto";const bad=!ok||(c.r.verifica&&c.r.verifica.esito!=="ok");return `<td class="${bad?"c-ko":"c-ok"}"><span class="t">${esc(c.task)}</span><span class="who">${ok?"✓":"✗"} ${esc(c.r.nome)}</span> ${hm(c.r.ora)}${vline(c.r)}</td>`;}
+      return `<td class="c-no"><span class="t">${esc(c.task)}</span>${c.date<=t?"— non firmato":"da fare"}</td>`;
+    }).join("")}</tr>`).join("")}
+  </tbody></table></div>`;
+  const people=Object.keys(w.per).sort((a,b)=>a.localeCompare(b));
+  return `<div class="weeknav"><button class="btn-ghost" data-act="wprev">◀</button>
+      <b>Settimana ${fmtShort(st.week)} – ${fmtShort(addDays(st.week,6))}</b>
+      <button class="btn-ghost" data-act="wnext">▶</button></div>
+    <div class="stats"><div class="stat"><b style="color:var(--ok)">${w.ok}</b><span>fatte</span></div>
+      <div class="stat"><b style="color:var(--ko)">${w.ko}</b><span>non fatte</span></div>
+      <div class="stat"><b>${w.miss}</b><span>non firmate</span></div>
+      <div class="stat"><b style="color:var(--accent-text)">${w.ver}</b><span>verificate</span></div>
+      <div class="stat"><b style="color:var(--ko)">${w.nc}</b><span>non conformi</span></div>
+      <div class="stat"><b>${w.daVer}</b><span>senza controfirma</span></div></div>
+    ${table}
+    <h2>Non conformi (controfirma)</h2>
+    <div class="card list">${w.ncs.length?w.ncs.map(k=>`<div><b>${k.d}</b> · ${k.s.label} · ${esc(k.r.compito)}<br>Pulito da ${esc(k.r.nome)} · controllato da ${esc(k.r.verifica.nome)} — ${k.r.verifica.nota?esc(k.r.verifica.nota):"nessuna nota"}</div>`).join(""):`<div style="color:var(--muted)">Nessuna questa settimana</div>`}</div>
+    <h2>Non fatte e motivi</h2>
+    <div class="card list">${w.kos.length?w.kos.map(k=>`<div><b>${k.d}</b> · ${k.s.label} · ${esc(k.r.compito)}<br>${esc(k.r.nome)} — ${k.r.motivo?esc(k.r.motivo):"nessun motivo indicato"}</div>`).join(""):`<div style="color:var(--muted)">Nessuna questa settimana</div>`}</div>
+    <h2>Per persona</h2>
+    <div class="card list">${people.length?people.map(p=>`<div><b>${esc(p)}</b> — ✓ ${w.per[p].ok} · ✗ ${w.per[p].ko} · 🛡 ${w.per[p].cf} controfirme</div>`).join(""):`<div style="color:var(--muted)">Ancora nessuna firma</div>`}</div>
+    ${st.downloads?`<button class="btn btn-main" data-act="csv" style="margin-top:4px">Scarica registro del mese (CSV)</button>`:""}
+    <h2>Piano pulizie</h2>
+    ${st.readOnly?"":st.planDraft?viewPlanEdit():`<button class="btn btn-ghost" style="width:100%;padding:12px" data-act="plan-edit">Modifica compiti per giorno e turno</button>`}`;
+}
+function viewPlanEdit(){
+  return `<div class="card plan">${DAYS.map(d=>`<h3>${d.n}</h3>${SHIFTS.map(s=>`<label>${s.label}</label><input data-plan="${d.k}.${s.k}" value="${esc(st.planDraft[d.k][s.k])}">`).join("")}`).join("<div style='height:10px'></div>")}
+    <div class="row" style="margin-top:14px"><button class="btn btn-ghost" style="flex:1" data-act="plan-cancel">Annulla</button>
+    <button class="btn btn-main" style="flex:1" data-act="plan-save">Salva piano</button></div></div>`;
+}
+function render(){
+  const app=document.getElementById("app");
+  const motivo=document.getElementById("motivo");const keep=motivo?motivo.value:null;const vn=document.getElementById("vnota");const keepV=vn?vn.value:null;
+  if(!st.me){app.innerHTML=viewLogin();return;}
+  const banner=st.readOnly?`<div class="banner">Il database ha rifiutato il salvataggio: controlla le regole di Firestore.</div>`:st.dbDead?`<div class="banner">Archivio non raggiungibile: le firme non vengono salvate. Riapri l'app.</div>`:(!st.dbReady?`<div class="note">Collegamento all'archivio…</div>`:"");
+  app.innerHTML=`<header><div class="brand"><span>Le Barrique</span><b>Pulizie Cucina</b></div>
+      <button class="chip" data-act="logout" title="Cambia nome">👤 ${esc(st.me)} · esci</button></header>
+    ${banner}
+    ${`<div class="tabs"><button class="${st.tab==="pulizie"?"on":""}" data-act="tab" data-t="pulizie">Pulizie</button><button class="${st.tab==="controllo"?"on":""}" data-act="tab" data-t="controllo">Controllo</button></div>`}
+    ${st.tab==="controllo"?viewControllo():viewPulizie()}`;
+  const m2=document.getElementById("motivo");if(m2&&keep!==null)m2.value=keep;const v2=document.getElementById("vnota");if(v2&&keepV!==null)v2.value=keepV;
+}
+
+/* ---------- CSV ---------- */
+async function exportCsv(){
+  if(!st.db||!st.downloads)return;
+  const ref=st.week;const y=ref.getFullYear(),m=ref.getMonth();
+  const from=y+"-"+pad(m+1)+"-01",to=y+"-"+pad(m+1)+"-31";
+  try{
+    const snap=await st.db.collection("firme").where("data",">=",from).where("data","<=",to).get();
+    const lines=[["Data","Giorno","Turno","Compito","Nome","Esito","Ora","Motivo","Responsabile","Controfirma","Ora controfirma","Nota responsabile"]];
+    snap.docs.map(d=>d.data()).sort((a,b)=>a.data.localeCompare(b.data)).forEach(v=>{
+      SHIFTS.forEach(s=>{const r=(v.slots||{})[s.k];if(r){const x=r.verifica;lines.push([v.data,v.giorno,r.turno,r.compito,r.nome,r.esito==="fatto"?"Fatto":"Non fatto",hm(r.ora),r.motivo||"",x?x.nome:"",x?(x.esito==="ok"?"Verificato":"Non conforme"):"Mancante",x?hm(x.ora):"",x?x.nota||"":""]);}});
+    });
+    const csv="\ufeff"+lines.map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(";")).join("\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download="pulizie-cucina-"+y+"-"+pad(m+1)+".csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }catch(e){if(!(e&&e.code==="cancelled"))toast("Download non riuscito");}
+}
+
+/* ---------- EVENTS ---------- */
+function doLogin(n){
+  n=cleanName(n);if(!n){toast("Scrivi il tuo nome");return;}
+  st.me=n;try{localStorage.setItem("lb_pulizie_nome",n);}catch(e){}
+  registerName(n);render();
+}
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="nameIn")doLogin(e.target.value);});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;
+  const a=b.dataset.act,d=+b.dataset.d,s=b.dataset.s;
+  if(a==="login")doLogin(document.getElementById("nameIn").value);
+  else if(a==="pick")doLogin(b.dataset.n);
+  else if(a==="logout"){st.me=null;try{localStorage.removeItem("lb_pulizie_nome");}catch(e){}st.tab="pulizie";render();}
+  else if(a==="tab"){st.tab=b.dataset.t;render();}
+  else if(a==="day"){st.sel=+b.dataset.i;st.koOpen=null;st.vOpen=null;render();}
+  else if(a==="ok")firma(d,s,"fatto","");
+  else if(a==="ko"){st.koOpen=d+s;render();const m=document.getElementById("motivo");if(m)m.focus();}
+  else if(a==="ko-save"){const m=document.getElementById("motivo");firma(d,s,"non_fatto",m?m.value.trim().slice(0,200):"");}
+  else if(a==="cancel"){st.koOpen=null;render();}
+  else if(a==="redo"){st.koOpen=d+s+"redo";render();}
+  else if(a==="vok")controfirma(d,s,"ok","");
+  else if(a==="vko"){st.vOpen=d+s;render();const m=document.getElementById("vnota");if(m)m.focus();}
+  else if(a==="vko-save"){const m=document.getElementById("vnota");controfirma(d,s,"ko",m?m.value.trim().slice(0,200):"");}
+  else if(a==="vcancel"){st.vOpen=null;render();}
+  else if(a==="vredo"){st.vOpen=d+s+"redo";render();}
+  else if(a==="wprev"||a==="wnext"){st.week=addDays(st.week,a==="wprev"?-7:7);subscribeWeek();render();}
+  else if(a==="csv")exportCsv();
+  else if(a==="plan-edit"){st.planDraft=JSON.parse(JSON.stringify(st.plan));render();}
+  else if(a==="plan-cancel"){st.planDraft=null;render();}
+  else if(a==="plan-save"){
+    document.querySelectorAll("[data-plan]").forEach(i=>{const [dk,sk]=i.dataset.plan.split(".");st.planDraft[dk][sk]=i.value.trim()||DEFAULT_PLAN[dk][sk];});
+    const g=st.planDraft;st.planDraft=null;
+    if(st.db)st.db.doc("config/piano").set({giorni:g,aggiornato:Date.now()}).then(()=>toast("Piano salvato")).catch(()=>toast("Errore salvataggio piano"));
+    st.plan=g;render();
+  }
+});
+/* return to current week when reopening the staff view */
+document.addEventListener("click",e=>{const b=e.target.closest('[data-act="tab"]');if(b&&b.dataset.t==="pulizie"&&iso(st.week)!==iso(monday(opDate()))){st.week=monday(opDate());subscribeWeek();render();}});
+
+render();
+initDb();
+})();
+</script>
+</body>
+</html>
