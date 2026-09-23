@@ -64,6 +64,10 @@ textarea{min-height:64px;resize:vertical}
 .shift.extra{background:var(--ok-soft);color:var(--ok)}
 .card-extra{border-style:dashed}
 .xcell{border-radius:8px;padding:6px;margin-bottom:6px}
+.result{border-radius:12px;padding:12px;font-weight:800;font-size:17px;margin-bottom:8px;text-align:center}
+.r-ok{background:var(--ok-soft);color:var(--ok)}.r-ko{background:var(--ko-soft);color:var(--ko)}
+.minehead{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:none;border:0;color:var(--text);font-weight:700;font-size:15px;padding:0;text-align:left}
+.mcount{white-space:nowrap;font-size:14px}
 .status{border-radius:12px;padding:10px 12px;font-weight:600}
 .status.ok{background:var(--ok-soft);color:var(--ok)}
 .status.ko{background:var(--ko-soft);color:var(--ko)}
@@ -163,14 +167,28 @@ const fmtShort=d=>pad(d.getDate())+"/"+pad(d.getMonth()+1);
 const opDate=()=>{const d=new Date();if(d.getHours()<5)d.setDate(d.getDate()-1);return d;};
 const st={
   me:null, tab:"pulizie", db:null, dbReady:false, dbDead:false, isAdmin:false, downloads:null,
-  plan:DEFAULT_PLAN, staff:{}, vOpen:null, addOpen:false, readOnly:false, week:monday(opDate()), sel:0, firme:{}, koOpen:null, planDraft:null
+  plan:DEFAULT_PLAN, staff:{}, vOpen:null, addOpen:false, pinFor:null, myOpen:false, readOnly:false, week:monday(opDate()), sel:0, firme:{}, koOpen:null, planDraft:null
 };
-try{st.me=localStorage.getItem("lb_pulizie_nome")||null;}catch(e){}
+try{st.me=localStorage.getItem("lb_pulizie_nome")||null;
+  if(st.me&&isResp(st.me)&&localStorage.getItem("lb_pulizie_resp_ok")!==st.me.toLowerCase()){st.me=null;localStorage.removeItem("lb_pulizie_nome");}
+}catch(e){}
 
 const todayIso=()=>iso(opDate());
 (function initSel(){st.sel=(opDate().getDay()+6)%7;})();
 
 function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.add("hidden"),2200);}
+
+/* ---------- RESPONSABILI (solo loro possono controfirmare) ---------- */
+const RESPONSABILI=["Simona","Leonardo","Vio","Federico"];
+const isResp=n=>!!n&&RESPONSABILI.some(r=>r.toLowerCase()===String(n).trim().toLowerCase());
+/* PIN responsabili: salvati solo come impronta (hash), mai in chiaro */
+const PIN_HASH={"simona": "2ef6719fb05940bc0f99ae3209f2a9e2d17daccdae095eb767a84e4316ddef22", "leonardo": "11a5f5467e4522f348fcc24451e95ef8f73b8734ed186694351ea0398fb85044", "vio": "999449bcb757e7a7c5ec40de2735c9ad01994c26ab56c2038e19560def594c45", "federico": "c015efdacd8752456b4695e61635dd170c94c3b22a6a7ae33012d97d2e290d02"};  /* stesso PIN per tutti i responsabili */
+async function checkPin(name,pin){
+  const data=new TextEncoder().encode(String(name).trim().toLowerCase()+":"+String(pin).trim()+":lebarrique");
+  const buf=await crypto.subtle.digest("SHA-256",data);
+  const hex=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+  return PIN_HASH[String(name).trim().toLowerCase()]===hex;
+}
 
 /* ---------- SLOT (turni fissi + pulizie extra) ---------- */
 function extrasOf(date){
@@ -264,6 +282,7 @@ async function controfirma(dayIdx,shiftK,esito,nota){
   if(date!==todayIso()){toast("Si può controfirmare solo il giorno stesso");return;}
   const rec=(st.firme[date]&&st.firme[date].slots||{})[shiftK];
   if(!rec){toast("Manca ancora la firma di chi ha pulito");return;}
+  if(!isResp(st.me)){toast("Solo i responsabili possono controfirmare");return;}
   if(rec.nome===st.me){toast("Non puoi controfirmare la tua stessa pulizia");return;}
   try{
     await st.db.doc("firme/"+date).update({slots:{[shiftK]:{verifica:{nome:st.me,esito:esito,nota:nota||"",ora:Date.now()}}}});
@@ -297,6 +316,18 @@ async function annulla(dayIdx,shiftK,cosa){
 
 /* ---------- VIEWS ---------- */
 function viewLogin(){
+  if(st.pinFor){
+    return `<div class="login">
+      <div style="font-size:44px">🛡</div>
+      <h1>Ciao ${esc(st.pinFor)}</h1>
+      <p>Sei un responsabile: inserisci il tuo PIN</p>
+      <div class="card" style="text-align:left">
+        <input id="pinIn" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="PIN (4 cifre)" autocomplete="off" style="text-align:center;font-size:24px;letter-spacing:10px">
+        <div style="height:10px"></div>
+        <button class="btn btn-main" data-act="pin-ok">Entra</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:8px;padding:12px" data-act="pin-back">Indietro</button>
+      </div></div>`;
+  }
   const known=Object.keys(st.staff||{}).sort((a,b)=>a.localeCompare(b));
   return `<div class="login">
     <div style="font-size:44px">🧹</div>
@@ -312,11 +343,12 @@ function viewLogin(){
 }
 function verificaHtml(dayIdx,sh,rec,isToday){
   const key=dayIdx+sh.k,v=rec.verifica;
-  const canAct=isToday&&!st.dbDead&&st.dbReady&&!st.readOnly&&rec.nome!==st.me;
+  const canAct=isToday&&!st.dbDead&&st.dbReady&&!st.readOnly&&rec.nome!==st.me&&isResp(st.me);
   let inner="";
   if(v&&st.vOpen!==key+"redo"&&st.vOpen!==key){
     const ok=v.esito==="ok";
-    inner=`<div class="status ${ok?"ver":"ko"}">🛡 ${ok?"Pulizia verificata":"Non conforme"} · ${esc(v.nome)} alle ${hm(v.ora)}
+    const mine=rec.nome===st.me;
+    inner=`${mine?`<div class="result ${ok?"r-ok":"r-ko"}">${ok?"✅ Il tuo lavoro è CONFORME":"❌ Il tuo lavoro NON è conforme"}</div>`:""}<div class="status ${ok?"ver":"ko"}">🛡 ${ok?"Pulizia verificata":"Non conforme"} · ${esc(v.nome)} alle ${hm(v.ora)}
       ${v.nota?`<small>Nota: ${esc(v.nota)}</small>`:""}</div>
       ${isToday&&v.nome===st.me&&!st.readOnly?`<div class="row" style="margin-top:8px"><button class="btn-ghost" style="flex:1" data-act="vredo" data-d="${dayIdx}" data-s="${sh.k}">✎ Modifica</button><button class="btn-ghost" style="flex:1;color:var(--ko)" data-act="undo-ver" data-d="${dayIdx}" data-s="${sh.k}">↺ Annulla controfirma</button></div>`:""}`;
   }else if(canAct){
@@ -332,7 +364,7 @@ function verificaHtml(dayIdx,sh,rec,isToday){
         ${st.vOpen===key+"redo"?`<button class="btn-ghost" style="margin-top:8px;width:100%" data-act="vcancel">Chiudi senza modificare</button>`:""}`;
     }
   }else{
-    inner=`<div class="status wait">${rec.nome===st.me&&isToday?"In attesa della controfirma del responsabile":(isToday?"Da controfirmare":"Senza controfirma")}</div>`;
+    inner=`<div class="status wait">${rec.nome===st.me&&isToday?"In attesa della controfirma del responsabile":(isToday?(isResp(st.me)?"Da controfirmare":"In attesa della controfirma del responsabile"):"Senza controfirma")}</div>`;
   }
   return `<div class="vbox"><div class="vlabel">Controfirma responsabile di turno</div>${inner}</div>`;
 }
@@ -372,6 +404,26 @@ function slotHtml(dayIdx,sh){
   const rm=sh.extra&&!rec&&isToday&&sh.creatoDa===st.me&&!st.readOnly?`<button class="btn-ghost" style="margin-top:8px;width:100%;color:var(--ko)" data-act="rm-extra" data-d="${dayIdx}" data-s="${sh.k}">🗑 Rimuovi pulizia extra</button>`:"";
   return `<div class="card${sh.extra?" card-extra":""}">${head}<div class="task">${esc(task)}</div>${body}${vb}${rm}</div>`;
 }
+function mieiRisultati(){
+  const items=[];
+  DAYS.forEach((d,i)=>{
+    const date=iso(addDays(st.week,i));const slots=(st.firme[date]&&st.firme[date].slots)||{};
+    slotsFor(i).forEach(s=>{const r=slots[s.k];if(r&&r.nome===st.me)items.push({d,date,r});});
+  });
+  if(!items.length)return "";
+  const okN=items.filter(x=>x.r.verifica&&x.r.verifica.esito==="ok").length;
+  const koN=items.filter(x=>x.r.verifica&&x.r.verifica.esito!=="ok").length;
+  const wN=items.length-okN-koN;
+  const list=items.slice().reverse().map(x=>{
+    const v=x.r.verifica;
+    const st_=v?(v.esito==="ok"?`<b style="color:var(--ok)">✅ Conforme</b>`:`<b style="color:var(--ko)">❌ Non conforme</b>${v.nota?` — ${esc(v.nota)}`:""}`):`<span style="color:var(--muted)">⏳ In attesa di controllo</span>`;
+    return `<div><b>${x.d.s} ${fmtShort(new Date(x.date+"T12:00:00"))}</b> · ${esc(x.r.compito)}<br>${st_}${v?` <small style="color:var(--muted)">(${esc(v.nome)})</small>`:""}</div>`;
+  }).join("");
+  return `<div class="card mine"><button class="minehead" data-act="mine">
+      <span>📋 I miei risultati della settimana</span>
+      <span class="mcount"><b style="color:var(--ok)">✅ ${okN}</b> <b style="color:var(--ko)">❌ ${koN}</b> <span>⏳ ${wN}</span> ${st.myOpen?"▲":"▼"}</span></button>
+    ${st.myOpen?`<div class="list" style="margin-top:8px">${list}</div>`:""}</div>`;
+}
 function viewPulizie(){
   const t=todayIso();
   const days=DAYS.map((d,i)=>{const dt=addDays(st.week,i);return `<button class="${i===st.sel?"on":""} ${iso(dt)===t?"today":""}" data-act="day" data-i="${i}">${d.s}<small>${fmtShort(dt)}</small></button>`;}).join("");
@@ -386,7 +438,7 @@ function viewPulizie(){
         <button class="btn btn-main" style="flex:1" data-act="add-save">Aggiungi</button></div></div>`
       :`<button class="btn btn-ghost" style="width:100%;padding:14px;border-style:dashed" data-act="add-open">➕ Aggiungi pulizia extra</button>`;
   }
-  return `<div class="days">${days}</div>${note}${slotsFor(st.sel).map(s=>slotHtml(st.sel,s)).join("")}${add}`;
+  return `${mieiRisultati()}<div class="days">${days}</div>${note}${slotsFor(st.sel).map(s=>slotHtml(st.sel,s)).join("")}${add}`;
 }
 function weekData(){
   const rows=[];let ok=0,ko=0,miss=0,ver=0,nc=0,daVer=0;const per={};const kos=[];const ncs=[];
@@ -454,7 +506,7 @@ function render(){
   if(!st.me){app.innerHTML=viewLogin();return;}
   const banner=st.readOnly?`<div class="banner">Il database ha rifiutato il salvataggio: controlla le regole di Firestore.</div>`:st.dbDead?`<div class="banner">Archivio non raggiungibile: le firme non vengono salvate. Riapri l'app.</div>`:(!st.dbReady?`<div class="note">Collegamento all'archivio…</div>`:"");
   app.innerHTML=`<header><div class="brand"><span>Le Barrique</span><b>Pulizie Cucina</b></div>
-      <button class="chip" data-act="logout" title="Cambia nome">👤 ${esc(st.me)} · esci</button></header>
+      <button class="chip" data-act="logout" title="Cambia nome">👤 ${esc(st.me)}${isResp(st.me)?" · 🛡 resp.":""} · esci</button></header>
     ${banner}
     ${`<div class="tabs"><button class="${st.tab==="pulizie"?"on":""}" data-act="tab" data-t="pulizie">Pulizie</button><button class="${st.tab==="controllo"?"on":""}" data-act="tab" data-t="controllo">Controllo</button></div>`}
     ${st.tab==="controllo"?viewControllo():viewPulizie()}`;
@@ -481,16 +533,32 @@ async function exportCsv(){
 /* ---------- EVENTS ---------- */
 function doLogin(n){
   n=cleanName(n);if(!n){toast("Scrivi il tuo nome");return;}
+  if(isResp(n)){st.pinFor=RESPONSABILI.find(r=>r.toLowerCase()===n.toLowerCase());render();const i=document.getElementById("pinIn");if(i)i.focus();return;}
+  finishLogin(n);
+}
+async function submitPin(){
+  const i=document.getElementById("pinIn");const pin=i?i.value:"";
+  if(!/^\d{4}$/.test(pin)){toast("Il PIN è di 4 cifre");return;}
+  let ok=false;try{ok=await checkPin(st.pinFor,pin);}catch(e){console.error(e);}
+  if(!ok){toast("PIN sbagliato");if(i){i.value="";i.focus();}return;}
+  const n=st.pinFor;st.pinFor=null;
+  try{localStorage.setItem("lb_pulizie_resp_ok",n.toLowerCase());}catch(e){}
+  finishLogin(n);
+}
+function finishLogin(n){
   st.me=n;try{localStorage.setItem("lb_pulizie_nome",n);}catch(e){}
   registerName(n);render();
 }
-document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="nameIn")doLogin(e.target.value);if(e.key==="Enter"&&e.target.id==="extraIn")aggiungiExtra(e.target.value);});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="nameIn")doLogin(e.target.value);if(e.key==="Enter"&&e.target.id==="extraIn")aggiungiExtra(e.target.value);if(e.key==="Enter"&&e.target.id==="pinIn")submitPin();});
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]");if(!b)return;
   const a=b.dataset.act,d=+b.dataset.d,s=b.dataset.s;
   if(a==="login")doLogin(document.getElementById("nameIn").value);
   else if(a==="pick")doLogin(b.dataset.n);
-  else if(a==="logout"){st.me=null;try{localStorage.removeItem("lb_pulizie_nome");}catch(e){}st.tab="pulizie";render();}
+  else if(a==="pin-ok")submitPin();
+  else if(a==="mine"){st.myOpen=!st.myOpen;render();}
+  else if(a==="pin-back"){st.pinFor=null;render();}
+  else if(a==="logout"){st.me=null;st.pinFor=null;try{localStorage.removeItem("lb_pulizie_nome");localStorage.removeItem("lb_pulizie_resp_ok");}catch(e){}st.tab="pulizie";render();}
   else if(a==="tab"){st.tab=b.dataset.t;render();}
   else if(a==="day"){st.sel=+b.dataset.i;st.koOpen=null;st.vOpen=null;st.addOpen=false;render();}
   else if(a==="ok")firma(d,s,"fatto","");
